@@ -1,4 +1,0 @@
-<resources>
-    <string name="app_name">learnApp01</string>
-    <string name="test_text">ChatGPT said:Bạn đang gặp lỗi code không chạy được đúng không?Mình xem qua thì code của bạn bị lỗi dấu ngoặc (missing }) và Scaffold đang được dùng sai tham số</string>
-</resources>
