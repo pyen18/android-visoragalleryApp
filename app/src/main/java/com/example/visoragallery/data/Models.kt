@@ -1,15 +1,18 @@
 package com.example.visoragallery.data
 
+import android.net.Uri
 import java.io.File
 
 data class PhotoItem(
-    val file: File,
-    val path: String = file.absolutePath,
-    val name: String = file.name,
-    val size: Long = file.length(),
-    val lastModified: Long = file.lastModified(),
+    val uri: Uri,
+    val file: File? = null,
+    val path: String = file?.absolutePath.orEmpty(),
+    val name: String = file?.name.orEmpty(),
+    val size: Long = file?.length() ?: 0L,
+    val lastModified: Long = file?.lastModified() ?: 0L,
     val isSelected: Boolean = false
 )
+
 
 data class AlbumItem(
     val id: String,
