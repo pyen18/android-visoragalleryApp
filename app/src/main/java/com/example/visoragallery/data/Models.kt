@@ -10,7 +10,8 @@ data class PhotoItem(
     val name: String = file?.name.orEmpty(),
     val size: Long = file?.length() ?: 0L,
     val lastModified: Long = file?.lastModified() ?: 0L,
-    val isSelected: Boolean = false
+    val isSelected: Boolean = false,
+
 )
 
 

@@ -1,0 +1,97 @@
+package com.example.visoragallery.ui.screens.photos
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.visoragallery.data.PhotoItem
+import com.example.visoragallery.repository.PhotoRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+sealed class PhotosUiState {
+    object Loading : PhotosUiState()
+    data class Success(val photos: List<PhotoItem>) : PhotosUiState()
+    data class Error(val message: String) : PhotosUiState()
+}
+
+class PhotosViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = PhotoRepository(application)
+
+    private val _uiState = MutableStateFlow<PhotosUiState>(PhotosUiState.Loading)
+    val uiState: StateFlow<PhotosUiState> = _uiState.asStateFlow()
+
+    private val _selectedPhotos = MutableStateFlow<Set<String>>(emptySet())
+    val selectedPhotos: StateFlow<Set<String>> = _selectedPhotos.asStateFlow()
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
+    private val _spanCount = MutableStateFlow(4)
+    val spanCount: StateFlow<Int> = _spanCount.asStateFlow()
+
+    init {
+        loadPhotos()
+    }
+
+    fun loadPhotos() {
+        viewModelScope.launch {
+            _uiState.value = PhotosUiState.Loading
+            try {
+                repository.getAllPhotos().collect { photos ->
+                    _uiState.value = PhotosUiState.Success(photos)
+                }
+            } catch (e: Exception) {
+                _uiState.value = PhotosUiState.Error(e.message ?: "Unknown error")
+            }
+        }
+    }
+
+    fun refreshPhotos() {
+        viewModelScope.launch {
+            try {
+                val photos = repository.refreshPhotos()
+                _uiState.value = PhotosUiState.Success(photos)
+            } catch (e: Exception) {
+                _uiState.value = PhotosUiState.Error(e.message ?: "Unknown error")
+            }
+        }
+    }
+
+    fun togglePhotoSelection(photoPath: String) {
+        val currentSelection = _selectedPhotos.value.toMutableSet()
+        if (currentSelection.contains(photoPath)) {
+            currentSelection.remove(photoPath)
+        } else {
+            currentSelection.add(photoPath)
+        }
+        _selectedPhotos.value = currentSelection
+
+        // Exit selection mode if no photos selected
+        if (currentSelection.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+    }
+
+    fun enterSelectionMode() {
+        _isSelectionMode.value = true
+    }
+
+    fun exitSelectionMode() {
+        _isSelectionMode.value = false
+        _selectedPhotos.value = emptySet()
+    }
+
+    fun selectAllPhotos() {
+        val state = _uiState.value
+        if (state is PhotosUiState.Success) {
+            _selectedPhotos.value = state.photos.map { it.path }.toSet()
+        }
+    }
+
+    fun setSpanCount(count: Int) {
+        _spanCount.value = count.coerceIn(1, 6)
+    }
+}

@@ -1,184 +1,306 @@
-package com.example.visoragallery.ui.screens
+package edu.team08.visoragallery.ui.screens
 
-import android.content.ContentUris
-import android.content.Context
-import android.provider.MediaStore
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import coil.compose.rememberAsyncImagePainter
-import com.example.visoragallery.data.PhotoItem
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat     // <-- FIX
-import java.util.*
+import com.example.visoragallery.ui.components.PhotoGrid
+import com.example.visoragallery.ui.screens.photos.PhotosUiState
+import com.example.visoragallery.ui.screens.photos.PhotosViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PhotosScreen(navController: NavController) {
-    val context = LocalContext.current
-    var photos by remember { mutableStateOf<List<PhotoItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+fun PhotosScreen(
+    navController: NavController,
+    viewModel: PhotosViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val selectedPhotos by viewModel.selectedPhotos.collectAsState()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+    val spanCount by viewModel.spanCount.collectAsState()
 
-    // Load photos when screen appears
-    LaunchedEffect(Unit) {
-        isLoading = true
-        photos = withContext(Dispatchers.IO) {
-            getPhotos(context)
-        }
-        isLoading = false
-    }
+    var showColumnDialog by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = getCurrentDateString(),
-                        style = MaterialTheme.typography.titleLarge
+            if (isSelectionMode) {
+                // Selection Mode TopBar
+                TopAppBar(
+                    title = {
+                        Text("${selectedPhotos.size} selected")
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { viewModel.exitSelectionMode() }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Exit selection")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.selectAllPhotos() }) {
+                            Icon(Icons.Filled.SelectAll, contentDescription = "Select all")
+                        }
+                        IconButton(onClick = { /* TODO: Share */ }) {
+                            Icon(Icons.Filled.Share, contentDescription = "Share")
+                        }
+                        IconButton(onClick = { /* TODO: Delete */ }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Filled.CameraAlt, "Camera")
-                    }
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Filled.MoreVert, "More")
-                    }
-                    IconButton(onClick = { navController.navigate("settings") }) {
-                        Icon(Icons.Filled.Settings, "Settings")
-                    }
-                }
-            )
+                )
+            } else {
+                // Normal TopBar
+                TopAppBar(
+                    title = {
+                        Text(
+                            getCurrentDateFormatted(),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = { /* TODO: Camera */ }) {
+                            Icon(Icons.Filled.CameraAlt, contentDescription = "Camera")
+                        }
+
+                        Box {
+                            IconButton(onClick = { showMoreMenu = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                            }
+
+                            DropdownMenu(
+                                expanded = showMoreMenu,
+                                onDismissRequest = { showMoreMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Select") },
+                                    onClick = {
+                                        viewModel.enterSelectionMode()
+                                        showMoreMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.CheckCircle, null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Columns") },
+                                    onClick = {
+                                        showColumnDialog = true
+                                        showMoreMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.GridView, null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Settings") },
+                                    onClick = {
+                                        // TODO: Navigate to settings
+                                        showMoreMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.Settings, null)
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
         }
     ) { paddingValues ->
-
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            photos.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                        Icon(
-                            painter = painterResource(android.R.drawable.ic_menu_gallery),
-                            contentDescription = null,
-                            modifier = Modifier.size(100.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text("No photos found")
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                viewModel.refreshPhotos()
+                isRefreshing = false
+            },
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            when (val state = uiState) {
+                is PhotosUiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
                 }
-            }
 
-            else -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(120.dp),
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(2.dp)
-                ) {
-                    items(photos) { photo ->
-                        PhotoGridItem(
-                            photo = photo,
-                            onClick = { /* Ảnh click */ }
+                is PhotosUiState.Success -> {
+                    if (state.photos.isEmpty()) {
+                        EmptyPhotosState()
+                    } else {
+                        PhotoGrid(
+                            photos = state.photos,
+                            spanCount = spanCount,
+                            selectedPhotos = selectedPhotos,
+                            isSelectionMode = isSelectionMode,
+                            onPhotoClick = { photo, index ->
+                                if (isSelectionMode) {
+                                    viewModel.togglePhotoSelection(photo.path)
+                                } else {
+                                    // TODO: Navigate to single photo view
+                                }
+                            },
+                            onPhotoLongClick = { photo ->
+                                if (!isSelectionMode) {
+                                    viewModel.enterSelectionMode()
+                                }
+                                viewModel.togglePhotoSelection(photo.path)
+                            },
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
+                }
+
+                is PhotosUiState.Error -> {
+                    ErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.loadPhotos() }
+                    )
                 }
             }
         }
     }
-}
 
-@Composable
-private fun PhotoGridItem(
-    photo: PhotoItem,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .padding(2.dp)
-            .clickable { onClick() }
-    ) {
-        Image(
-            painter = rememberAsyncImagePainter(
-                model = photo.uri,
-                error = painterResource(android.R.drawable.ic_menu_gallery)
-            ),
-            contentScale = ContentScale.Crop,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize()
+    // Column selection dialog
+    if (showColumnDialog) {
+        AlertDialog(
+            onDismissRequest = { showColumnDialog = false },
+            title = { Text("Grid Columns") },
+            text = {
+                Column {
+                    listOf(1, 2, 3, 4, 5, 6).forEach { count ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("$count columns")
+                            RadioButton(
+                                selected = spanCount == count,
+                                onClick = {
+                                    viewModel.setSpanCount(count)
+                                    showColumnDialog = false
+                                }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showColumnDialog = false }) {
+                    Text("Close")
+                }
+            }
         )
     }
 }
 
-private fun getCurrentDateString(): String {
-    val dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
-    return dateFormat.format(Date())
+@Composable
+fun EmptyPhotosState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Image,
+                contentDescription = null,
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "No photos found",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Text(
+                text = "Take some photos to see them here",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
 }
 
-/**
- * Lấy ảnh đúng chuẩn Android 10+ (không dùng MediaStore.DATA nữa)
- */
-private fun getPhotos(context: Context): List<PhotoItem> {
-    val photos = mutableListOf<PhotoItem>()
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Error,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
 
-    val projection = arrayOf(
-        MediaStore.Images.Media._ID,
-        MediaStore.Images.Media.DATE_ADDED
-    )
+            Spacer(modifier = Modifier.height(16.dp))
 
-    val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
+            Text(
+                text = "Error loading photos",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground
+            )
 
-    try {
-        context.contentResolver.query(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            null,
-            null,
-            sortOrder
-        )?.use { cursor ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
 
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+            Spacer(modifier = Modifier.height(16.dp))
 
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id
-                )
-
-                photos.add(PhotoItem(file = null, uri = uri))
+            Button(onClick = onRetry) {
+                Text("Retry")
             }
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
     }
+}
 
-    return photos
+fun getCurrentDateFormatted(): String {
+    val sdf = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+    return sdf.format(Date())
 }

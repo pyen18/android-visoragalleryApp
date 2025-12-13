@@ -27,6 +27,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.example.visoragallery.data.NavigationItem
+import edu.team08.visoragallery.ui.screens.PhotosScreen
 
 data class BottomNavItem(
     val route: String,
