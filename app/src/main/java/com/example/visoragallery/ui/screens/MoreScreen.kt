@@ -4,24 +4,35 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.visoragallery.ui.theme.*
+import  com.example.visoragallery.ui.theme.FavoritesPink
+import  com.example.visoragallery.ui.theme.PrivateBlue
+import  com.example.visoragallery.ui.theme.TrashGray
+import  com.example.visoragallery.utils.TestImageGenerator
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoreScreen(navController: NavController) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isGenerating by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -75,7 +86,85 @@ fun MoreScreen(navController: NavController) {
                     onClick = { /* TODO: Navigate to trash */ }
                 )
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Generate Test Images Button (FOR TESTING ONLY)
+            Button(
+                onClick = {
+                    scope.launch {
+                        isGenerating = true
+                        val success = TestImageGenerator.generateTestImages(context, 20)
+                        isGenerating = false
+                        if (success) {
+                            showSuccessDialog = true
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                enabled = !isGenerating,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                if (isGenerating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Generating...")
+                } else {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Generate 20 Test Images")
+                }
+            }
+
+            Text(
+                text = "For testing only - Creates 20 colorful test images",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
         }
+    }
+
+    // Success Dialog
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            icon = {
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Test Images Generated!") },
+            text = {
+                Text("20 test images have been created. Go to Photos tab and pull-to-refresh to see them.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSuccessDialog = false
+                    navController.navigate("photos") {
+                        popUpTo(navController.graph.startDestinationId)
+                        launchSingleTop = true
+                    }
+                }) {
+                    Text("Go to Photos")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSuccessDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }
 
