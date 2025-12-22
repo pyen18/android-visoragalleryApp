@@ -1,4 +1,4 @@
-package edu.team08.visoragallery.ui.screens
+package com.example.visoragallery.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -160,7 +160,13 @@ fun PhotosScreen(
                                 if (isSelectionMode) {
                                     viewModel.togglePhotoSelection(photo.path)
                                 } else {
-                                    // TODO: Navigate to single photo view
+                                    // Navigate to single photo view
+                                    val photoPaths = state.photos.map { it.path }.toTypedArray()
+                                    navController.currentBackStackEntry?.savedStateHandle?.set(
+                                        "photoPaths",
+                                        photoPaths
+                                    )
+                                    navController.navigate("single_photo/$index")
                                 }
                             },
                             onPhotoLongClick = { photo ->
