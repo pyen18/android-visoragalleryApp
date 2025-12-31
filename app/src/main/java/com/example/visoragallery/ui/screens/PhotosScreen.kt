@@ -20,10 +20,10 @@ import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.example.visoragallery.ui.components.PhotoGrid
-import com.example.visoragallery.ui.screens.photos.PhotosUiState
-import com.example.visoragallery.ui.screens.photos.PhotosViewModel
-//import com.example.visoragallery.utils.CameraHelper
+import  com.example.visoragallery.ui.components.PhotoGrid
+import  com.example.visoragallery.ui.screens.photos.PhotosUiState
+import  com.example.visoragallery.ui.screens.photos.PhotosViewModel
+//import  com.example.visoragallery.utils.CameraHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,8 +49,8 @@ fun PhotosScreen(
 
     // Camera helper
 //    val cameraHelper = remember { CameraHelper(context) }
-//
-//    // Camera launcher
+
+    // Camera launcher
 //    val cameraLauncher = rememberLauncherForActivityResult(
 //        contract = ActivityResultContracts.StartActivityForResult()
 //    ) { result ->

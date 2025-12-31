@@ -36,6 +36,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.example.visoragallery.data.NavigationItem
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
+import com.example.visoragallery.ui.screens.settings.SettingsScreen
 
 data class BottomNavItem(
     val route: String,
@@ -206,6 +207,11 @@ fun MainScreen(
                         initialPosition = photoIndex
                     )
                 }
+            }
+
+            // Settings route
+            composable("settings") {
+                SettingsScreen(navController = navController)
             }
         }
     }

@@ -19,10 +19,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import  com.example.visoragallery.ui.theme.FavoritesPink
-import  com.example.visoragallery.ui.theme.PrivateBlue
-import  com.example.visoragallery.ui.theme.TrashGray
-import  com.example.visoragallery.utils.TestImageGenerator
+import com.example.visoragallery.ui.theme.FavoritesPink
+import com.example.visoragallery.ui.theme.PrivateBlue
+import com.example.visoragallery.ui.theme.TrashGray
+import com.example.visoragallery.utils.TestImageGenerator
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +38,9 @@ fun MoreScreen(navController: NavController) {
             TopAppBar(
                 title = { Text("More") },
                 actions = {
-                    IconButton(onClick = { /* TODO: Navigate to settings */ }) {
+                    IconButton(onClick = {
+                        navController.navigate("settings")
+                    }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
