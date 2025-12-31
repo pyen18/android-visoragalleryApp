@@ -37,6 +37,7 @@ import com.google.accompanist.permissions.MultiplePermissionsState
 import com.example.visoragallery.data.NavigationItem
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
 import com.example.visoragallery.ui.screens.settings.SettingsScreen
+import com.example.visoragallery.ui.screens.trashbin.TrashBinScreen
 
 data class BottomNavItem(
     val route: String,
@@ -96,45 +97,51 @@ fun MainScreen(
         )
     )
 
+    // Determine if we should show bottom bar
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute in bottomNavItems.map { it.route }
+
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
+            if (showBottomBar) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) {
+                    val currentDestination = navBackStackEntry?.destination
 
-                bottomNavItems.forEach { item ->
-                    val selected = currentDestination?.hierarchy?.any {
-                        it.route == item.route
-                    } == true
+                    bottomNavItems.forEach { item ->
+                        val selected = currentDestination?.hierarchy?.any {
+                            it.route == item.route
+                        } == true
 
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                contentDescription = item.title
-                            )
-                        },
-                        label = { Text(item.title) },
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                    contentDescription = item.title
+                                )
+                            },
+                            label = { Text(item.title) },
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -144,7 +151,7 @@ fun MainScreen(
             startDestination = NavigationItem.Photos.route,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(if (showBottomBar) paddingValues else PaddingValues(0.dp))
         ) {
             composable(NavigationItem.Photos.route) {
                 if (permissionsState.allPermissionsGranted) {
@@ -192,26 +199,43 @@ fun MainScreen(
                 arguments = listOf(
                     navArgument("photoIndex") {
                         type = NavType.IntType
+                        defaultValue = 0
                     }
                 )
             ) { backStackEntry ->
-                val photoIndex = backStackEntry.arguments?.getInt("photoIndex") ?: 0
-                val photoPaths = navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.get<Array<String>>("photoPaths") ?: emptyArray()
+                android.util.Log.d("MainScreen", "Single photo route triggered")
 
-                if (photoPaths.isNotEmpty()) {
+                val photoIndex = backStackEntry.arguments?.getInt("photoIndex") ?: 0
+                android.util.Log.d("MainScreen", "Photo index: $photoIndex")
+
+                // Lấy từ PhotoDataHolder thay vì savedStateHandle
+                val photoPaths = com.example.visoragallery.data.PhotoDataHolder.getPhotoPaths()
+
+                android.util.Log.d("MainScreen", "Retrieved photoPaths: ${photoPaths?.size ?: 0}")
+
+                if (photoPaths != null && photoPaths.isNotEmpty()) {
+                    android.util.Log.d("MainScreen", "Showing SinglePhotoScreen")
                     SinglePhotoScreen(
                         navController = navController,
                         photoPaths = photoPaths,
                         initialPosition = photoIndex
                     )
+                } else {
+                    android.util.Log.e("MainScreen", "No photo paths found, navigating back")
+                    LaunchedEffect(Unit) {
+                        navController.navigateUp()
+                    }
                 }
             }
 
             // Settings route
             composable("settings") {
                 SettingsScreen(navController = navController)
+            }
+
+            // Trash bin route
+            composable("trash_bin") {
+                TrashBinScreen(navController = navController)
             }
         }
     }

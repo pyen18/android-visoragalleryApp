@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.visoragallery.data.PhotoItem
 import com.example.visoragallery.repository.PhotoRepository
+import com.example.visoragallery.ui.screens.trashbin.TrashBinManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +20,7 @@ sealed class PhotosUiState {
 class PhotosViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = PhotoRepository(application)
+    private val trashBinManager = TrashBinManager.getInstance(application)
 
     private val _uiState = MutableStateFlow<PhotosUiState>(PhotosUiState.Loading)
     val uiState: StateFlow<PhotosUiState> = _uiState.asStateFlow()
@@ -31,6 +33,9 @@ class PhotosViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _spanCount = MutableStateFlow(4)
     val spanCount: StateFlow<Int> = _spanCount.asStateFlow()
+
+    private val _deleteInProgress = MutableStateFlow(false)
+    val deleteInProgress: StateFlow<Boolean> = _deleteInProgress.asStateFlow()
 
     init {
         loadPhotos()
@@ -93,5 +98,45 @@ class PhotosViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setSpanCount(count: Int) {
         _spanCount.value = count.coerceIn(1, 6)
+    }
+
+    // Delete selected photos
+    fun deleteSelectedPhotos(onComplete: (success: Boolean, count: Int) -> Unit) {
+        viewModelScope.launch {
+            _deleteInProgress.value = true
+
+            val photosToDelete = _selectedPhotos.value.toList()
+            var successCount = 0
+
+            photosToDelete.forEach { photoPath ->
+                val success = trashBinManager.moveToTrash(photoPath)
+                if (success) successCount++
+            }
+
+            _deleteInProgress.value = false
+
+            // Exit selection mode and refresh
+            exitSelectionMode()
+            refreshPhotos()
+
+            onComplete(successCount == photosToDelete.size, successCount)
+        }
+    }
+
+    // Delete single photo
+    fun deletePhoto(photoPath: String, onComplete: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            _deleteInProgress.value = true
+
+            val success = trashBinManager.moveToTrash(photoPath)
+
+            _deleteInProgress.value = false
+
+            if (success) {
+                refreshPhotos()
+            }
+
+            onComplete(success)
+        }
     }
 }

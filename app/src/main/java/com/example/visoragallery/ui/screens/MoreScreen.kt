@@ -85,7 +85,9 @@ fun MoreScreen(navController: NavController) {
                     photoCount = "0 photos",
                     icon = Icons.Filled.Delete,
                     backgroundColor = TrashGray,
-                    onClick = { /* TODO: Navigate to trash */ }
+                    onClick = {
+                        navController.navigate("trash_bin")
+                    }
                 )
             }
 

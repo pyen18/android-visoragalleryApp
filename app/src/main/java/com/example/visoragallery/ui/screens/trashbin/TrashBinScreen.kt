@@ -1,49 +1,39 @@
-package com.example.visoragallery.ui.screens
-import android.Manifest
+package com.example.visoragallery.ui.screens.trashbin
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
 import com.example.visoragallery.ui.components.PhotoGrid
-import com.example.visoragallery.ui.screens.photos.PhotosUiState
-import com.example.visoragallery.ui.screens.photos.PhotosViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PhotosScreen(
+fun TrashBinScreen(
     navController: NavController,
-    viewModel: PhotosViewModel = viewModel()
+    viewModel: TrashBinViewModel = viewModel()
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val selectedPhotos by viewModel.selectedPhotos.collectAsState()
     val isSelectionMode by viewModel.isSelectionMode.collectAsState()
-    val spanCount by viewModel.spanCount.collectAsState()
-    val deleteInProgress by viewModel.deleteInProgress.collectAsState()
+    val operationInProgress by viewModel.operationInProgress.collectAsState()
 
-    var showColumnDialog by remember { mutableStateOf(false) }
-    var showMoreMenu by remember { mutableStateOf(false) }
+    var showEmptyTrashDialog by remember { mutableStateOf(false) }
+    var showRestoreDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var showDeleteResultSnackbar by remember { mutableStateOf(false) }
-    var deleteResultMessage by remember { mutableStateOf("") }
+    var showMoreMenu by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadTrashPhotos()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -60,20 +50,17 @@ fun PhotosScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { viewModel.selectAllPhotos() }) {
-                            Icon(Icons.Filled.SelectAll, contentDescription = "Select all")
-                        }
                         IconButton(
-                            onClick = { /* TODO: Share */ },
+                            onClick = { showRestoreDialog = true },
                             enabled = selectedPhotos.isNotEmpty()
                         ) {
-                            Icon(Icons.Filled.Share, contentDescription = "Share")
+                            Icon(Icons.Filled.RestoreFromTrash, contentDescription = "Restore")
                         }
                         IconButton(
                             onClick = { showDeleteDialog = true },
                             enabled = selectedPhotos.isNotEmpty()
                         ) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                            Icon(Icons.Filled.DeleteForever, contentDescription = "Delete permanently")
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -84,17 +71,13 @@ fun PhotosScreen(
             } else {
                 // Normal TopBar
                 TopAppBar(
-                    title = {
-                        Text(
-                            getCurrentDateFormatted(),
-                            style = MaterialTheme.typography.titleLarge
-                        )
+                    title = { Text("Trash Bin") },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.navigateUp() }) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     },
                     actions = {
-                        IconButton(onClick = { /* TODO: Camera */ }) {
-                            Icon(Icons.Filled.CameraAlt, contentDescription = "Camera")
-                        }
-
                         Box {
                             IconButton(onClick = { showMoreMenu = true }) {
                                 Icon(Icons.Filled.MoreVert, contentDescription = "More")
@@ -115,24 +98,39 @@ fun PhotosScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Columns") },
+                                    text = { Text("Restore All") },
                                     onClick = {
-                                        showColumnDialog = true
+                                        viewModel.restoreAllPhotos { success, count ->
+                                            val message = if (success) {
+                                                "Restored $count photo${if (count > 1) "s" else ""}"
+                                            } else {
+                                                "Failed to restore photos"
+                                            }
+                                            // Show snackbar
+                                        }
                                         showMoreMenu = false
                                     },
                                     leadingIcon = {
-                                        Icon(Icons.Filled.GridView, null)
-                                    }
+                                        Icon(Icons.Filled.RestoreFromTrash, null)
+                                    },
+                                    enabled = uiState is TrashBinUiState.Success &&
+                                            (uiState as TrashBinUiState.Success).photos.isNotEmpty()
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Settings") },
+                                    text = { Text("Empty Trash") },
                                     onClick = {
-                                        navController.navigate("settings")
+                                        showEmptyTrashDialog = true
                                         showMoreMenu = false
                                     },
                                     leadingIcon = {
-                                        Icon(Icons.Filled.Settings, null)
-                                    }
+                                        Icon(
+                                            Icons.Filled.DeleteForever,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    enabled = uiState is TrashBinUiState.Success &&
+                                            (uiState as TrashBinUiState.Success).photos.isNotEmpty()
                                 )
                             }
                         }
@@ -146,61 +144,40 @@ fun PhotosScreen(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = {
-                    isRefreshing = true
-                    viewModel.refreshPhotos()
-                    isRefreshing = false
-                }
-            ) {
-                when (val state = uiState) {
-                    is PhotosUiState.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+            when (val state = uiState) {
+                is TrashBinUiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
+                }
 
-                    is PhotosUiState.Success -> {
-                        if (state.photos.isEmpty()) {
-                            EmptyPhotosState()
-                        } else {
-                            // Trong PhotosScreen.kt
-// Thay thế phần PhotoGrid như sau:
+                is TrashBinUiState.Success -> {
+                    if (state.photos.isEmpty()) {
+                        EmptyTrashState()
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Info text
+                            Text(
+                                text = "Items in trash will be removed after 30 days.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(16.dp)
+                            )
 
+                            // Photo grid
                             PhotoGrid(
                                 photos = state.photos,
-                                spanCount = spanCount,
+                                spanCount = 4,
                                 selectedPhotos = selectedPhotos,
                                 isSelectionMode = isSelectionMode,
                                 onPhotoClick = { photo, index ->
                                     if (isSelectionMode) {
                                         viewModel.togglePhotoSelection(photo.path)
                                     } else {
-                                        // Debug logs
-                                        android.util.Log.d("PhotosScreen", "Photo clicked at index: $index")
-                                        android.util.Log.d("PhotosScreen", "Photo path: ${photo.path}")
-                                        android.util.Log.d("PhotosScreen", "Total photos: ${state.photos.size}")
-
-                                        // Lưu vào PhotoDataHolder thay vì savedStateHandle
-                                        val photoPaths = state.photos.map { it.path }.toTypedArray()
-                                        android.util.Log.d("PhotosScreen", "PhotoPaths array size: ${photoPaths.size}")
-
-                                        com.example.visoragallery.data.PhotoDataHolder.setPhotoPaths(photoPaths)
-
-                                        // Navigate
-                                        val route = "single_photo/$index"
-                                        android.util.Log.d("PhotosScreen", "Navigating to: $route")
-
-                                        try {
-                                            navController.navigate(route)
-                                            android.util.Log.d("PhotosScreen", "Navigation called successfully")
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("PhotosScreen", "Navigation failed", e)
-                                        }
+                                        // TODO: Navigate to single trash photo view
                                     }
                                 },
                                 onPhotoLongClick = { photo ->
@@ -213,22 +190,20 @@ fun PhotosScreen(
                             )
                         }
                     }
+                }
 
-                    is PhotosUiState.Error -> {
-                        ErrorState(
-                            message = state.message,
-                            onRetry = { viewModel.loadPhotos() }
-                        )
-                    }
+                is TrashBinUiState.Error -> {
+                    ErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.loadTrashPhotos() }
+                    )
                 }
             }
 
-            // Delete Progress Overlay
-            if (deleteInProgress) {
+            // Operation Progress Overlay
+            if (operationInProgress) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Surface(
@@ -241,7 +216,7 @@ fun PhotosScreen(
                         ) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Moving to trash...")
+                            Text("Processing...")
                         }
                     }
                 }
@@ -249,59 +224,102 @@ fun PhotosScreen(
         }
     }
 
-    // Column selection dialog
-    if (showColumnDialog) {
+    // Empty Trash Dialog
+    if (showEmptyTrashDialog) {
         AlertDialog(
-            onDismissRequest = { showColumnDialog = false },
-            title = { Text("Grid Columns") },
-            text = {
-                Column {
-                    listOf(1, 2, 3, 4, 5, 6).forEach { count ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("$count columns")
-                            RadioButton(
-                                selected = spanCount == count,
-                                onClick = {
-                                    viewModel.setSpanCount(count)
-                                    showColumnDialog = false
-                                }
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showColumnDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-
-    // Delete Confirmation Dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = { showEmptyTrashDialog = false },
             icon = {
                 Icon(
-                    Icons.Filled.Delete,
+                    Icons.Filled.DeleteForever,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error
                 )
             },
             title = {
-                Text("Move to Trash?")
+                Text("Empty Trash?")
             },
             text = {
                 Text(
-                    "Move ${selectedPhotos.size} photo${if (selectedPhotos.size > 1) "s" else ""} to trash?\n\n" +
-                            "You can restore them within 30 days."
+                    "This will permanently delete all photos in trash.\n\n" +
+                            "This action cannot be undone!"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showEmptyTrashDialog = false
+                        viewModel.emptyTrash { success ->
+                            // Show snackbar
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Empty Trash")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEmptyTrashDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Restore Dialog
+    if (showRestoreDialog) {
+        AlertDialog(
+            onDismissRequest = { showRestoreDialog = false },
+            icon = {
+                Icon(Icons.Filled.RestoreFromTrash, contentDescription = null)
+            },
+            title = {
+                Text("Restore Photos?")
+            },
+            text = {
+                Text(
+                    "Restore ${selectedPhotos.size} photo${if (selectedPhotos.size > 1) "s" else ""}?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreDialog = false
+                        viewModel.restoreSelectedPhotos { success, count ->
+                            // Show snackbar
+                        }
+                    }
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Permanently Dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            icon = {
+                Icon(
+                    Icons.Filled.DeleteForever,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text("Delete Permanently?")
+            },
+            text = {
+                Text(
+                    "Permanently delete ${selectedPhotos.size} photo${if (selectedPhotos.size > 1) "s" else ""}?\n\n" +
+                            "This action cannot be undone!"
                 )
             },
             confirmButton = {
@@ -309,19 +327,14 @@ fun PhotosScreen(
                     onClick = {
                         showDeleteDialog = false
                         viewModel.deleteSelectedPhotos { success, count ->
-                            deleteResultMessage = if (success) {
-                                "Moved $count photo${if (count > 1) "s" else ""} to trash"
-                            } else {
-                                "Failed to move photos to trash"
-                            }
-                            showDeleteResultSnackbar = true
+                            // Show snackbar
                         }
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Move to Trash")
+                    Text("Delete Permanently")
                 }
             },
             dismissButton = {
@@ -331,21 +344,10 @@ fun PhotosScreen(
             }
         )
     }
-
-    // Show result snackbar
-    LaunchedEffect(showDeleteResultSnackbar) {
-        if (showDeleteResultSnackbar) {
-            snackbarHostState.showSnackbar(
-                message = deleteResultMessage,
-                duration = SnackbarDuration.Short
-            )
-            showDeleteResultSnackbar = false
-        }
-    }
 }
 
 @Composable
-fun EmptyPhotosState() {
+fun EmptyTrashState() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -355,7 +357,7 @@ fun EmptyPhotosState() {
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Filled.Image,
+                imageVector = Icons.Filled.DeleteOutline,
                 contentDescription = null,
                 modifier = Modifier.size(120.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -364,13 +366,13 @@ fun EmptyPhotosState() {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "No photos found",
+                text = "Trash is empty",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
 
             Text(
-                text = "Take some photos to see them here",
+                text = "Deleted photos will appear here",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
@@ -403,7 +405,7 @@ fun ErrorState(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Error loading photos",
+                text = "Error loading trash",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -422,9 +424,4 @@ fun ErrorState(
             }
         }
     }
-}
-
-fun getCurrentDateFormatted(): String {
-    val sdf = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
-    return sdf.format(Date())
 }
