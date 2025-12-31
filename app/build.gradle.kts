@@ -49,13 +49,10 @@ android {
 dependencies {
     // ------------------------- CORE -------------------------
     implementation("androidx.core:core-ktx:1.13.1")
-
-    // FIX version lifecycle (cũ quá → lỗi LifecycleOwner)
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 
-    // FIX version activity-compose (1.8 quá cũ)
     implementation("androidx.activity:activity-compose:1.9.3")
-
+    implementation("androidx.compose.foundation:foundation")
     // ------------------------- COMPOSE -------------------------
     implementation(platform("androidx.compose:compose-bom:2024.10.00"))
     implementation("androidx.compose.ui:ui")

@@ -36,8 +36,6 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.example.visoragallery.data.NavigationItem
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
-import com.example.visoragallery.ui.screens.PhotosScreen
-
 
 data class BottomNavItem(
     val route: String,
@@ -185,6 +183,29 @@ fun MainScreen(
 
             composable(NavigationItem.More.route) {
                 MoreScreen(navController = navController)
+            }
+
+            // Single photo viewer route
+            composable(
+                route = "single_photo/{photoIndex}",
+                arguments = listOf(
+                    navArgument("photoIndex") {
+                        type = NavType.IntType
+                    }
+                )
+            ) { backStackEntry ->
+                val photoIndex = backStackEntry.arguments?.getInt("photoIndex") ?: 0
+                val photoPaths = navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.get<Array<String>>("photoPaths") ?: emptyArray()
+
+                if (photoPaths.isNotEmpty()) {
+                    SinglePhotoScreen(
+                        navController = navController,
+                        photoPaths = photoPaths,
+                        initialPosition = photoIndex
+                    )
+                }
             }
         }
     }

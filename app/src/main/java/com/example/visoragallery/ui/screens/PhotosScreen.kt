@@ -1,5 +1,9 @@
 package com.example.visoragallery.ui.screens
-
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,19 +17,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import com.example.visoragallery.ui.components.PhotoGrid
 import com.example.visoragallery.ui.screens.photos.PhotosUiState
 import com.example.visoragallery.ui.screens.photos.PhotosViewModel
+//import com.example.visoragallery.utils.CameraHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun PhotosScreen(
     navController: NavController,
     viewModel: PhotosViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val selectedPhotos by viewModel.selectedPhotos.collectAsState()
     val isSelectionMode by viewModel.isSelectionMode.collectAsState()
@@ -34,6 +43,28 @@ fun PhotosScreen(
     var showColumnDialog by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
+
+    // Camera permission state
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+
+    // Camera helper
+//    val cameraHelper = remember { CameraHelper(context) }
+//
+//    // Camera launcher
+//    val cameraLauncher = rememberLauncherForActivityResult(
+//        contract = ActivityResultContracts.StartActivityForResult()
+//    ) { result ->
+//        if (result.resultCode == Activity.RESULT_OK) {
+//            // Photo captured successfully
+//            cameraHelper.notifyMediaScanner()
+//
+//            // Refresh photos to show new photo
+//            viewModel.refreshPhotos()
+//
+//            // Show success message
+//            // You can add a Snackbar here if you want
+//        }
+//    }
 
     Scaffold(
         topBar = {
@@ -161,12 +192,17 @@ fun PhotosScreen(
                                     viewModel.togglePhotoSelection(photo.path)
                                 } else {
                                     // Navigate to single photo view
-                                    val photoPaths = state.photos.map { it.path }.toTypedArray()
-                                    navController.currentBackStackEntry?.savedStateHandle?.set(
-                                        "photoPaths",
-                                        photoPaths
-                                    )
-                                    navController.navigate("single_photo/$index")
+                                    try {
+                                        val photoPaths = state.photos.map { it.path }.toTypedArray()
+                                        navController.currentBackStackEntry?.savedStateHandle?.set(
+                                            "photoPaths",
+                                            photoPaths
+                                        )
+                                        navController.navigate("single_photo/$index")
+                                    } catch (e: Exception) {
+                                        // Log error or show toast
+                                        android.util.Log.e("PhotosScreen", "Navigation error", e)
+                                    }
                                 }
                             },
                             onPhotoLongClick = { photo ->
