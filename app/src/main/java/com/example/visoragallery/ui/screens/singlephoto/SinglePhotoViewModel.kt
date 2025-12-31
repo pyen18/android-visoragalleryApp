@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.visoragallery.data.PhotoItem
+import com.example.visoragallery.ui.screens.favorites.FavoritesManager
 import com.example.visoragallery.ui.screens.trashbin.TrashBinManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ data class SinglePhotoUiState(
 class SinglePhotoViewModel(application: Application) : AndroidViewModel(application) {
 
     private val trashBinManager = TrashBinManager.getInstance(application)
+    private val favoritesManager = FavoritesManager.getInstance(application)
 
     private val _uiState = MutableStateFlow(SinglePhotoUiState())
     val uiState: StateFlow<SinglePhotoUiState> = _uiState.asStateFlow()
@@ -82,16 +84,23 @@ class SinglePhotoViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun toggleFavorite() {
-        val currentFavorite = _uiState.value.isFavorite
-        _uiState.value = _uiState.value.copy(
-            isFavorite = !currentFavorite
-        )
-        // TODO: Save to database
+        viewModelScope.launch {
+            val currentPhoto = _uiState.value.currentPhoto ?: return@launch
+            val newState = favoritesManager.toggleFavorite(currentPhoto.path)
+            _uiState.value = _uiState.value.copy(isFavorite = newState)
+        }
     }
 
     private fun checkFavoriteStatus() {
-        // TODO: Check from database
-        _uiState.value = _uiState.value.copy(isFavorite = false)
+        viewModelScope.launch {
+            val currentPhoto = _uiState.value.currentPhoto
+            if (currentPhoto != null) {
+                val isFav = favoritesManager.isFavorite(currentPhoto.path)
+                _uiState.value = _uiState.value.copy(isFavorite = isFav)
+            } else {
+                _uiState.value = _uiState.value.copy(isFavorite = false)
+            }
+        }
     }
 
     fun deleteCurrentPhoto(onComplete: (success: Boolean) -> Unit) {

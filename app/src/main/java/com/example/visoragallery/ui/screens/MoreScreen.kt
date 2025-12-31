@@ -1,4 +1,5 @@
 package com.example.visoragallery.ui.screens
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -67,7 +68,9 @@ fun MoreScreen(navController: NavController) {
                     photoCount = "0 photos",
                     icon = Icons.Filled.Favorite,
                     backgroundColor = FavoritesPink,
-                    onClick = { /* TODO: Navigate to favorites */ }
+                    onClick = {
+                        navController.navigate("favorites")
+                    }
                 )
 
                 AlbumCard(
@@ -189,27 +192,35 @@ fun AlbumCard(
             .clickable(onClick = onClick)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.SpaceBetween  // Changed from Center to SpaceBetween
     ) {
+        // Icon at top
         Icon(
             imageVector = icon,
             contentDescription = title,
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier
+                .size(56.dp)
+                .weight(1f),
             tint = Color.White
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // Text at bottom
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White  // Changed to white for better contrast
+            )
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+            Spacer(modifier = Modifier.height(4.dp))
 
-        Text(
-            text = photoCount,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
+            Text(
+                text = photoCount,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f)  // Changed to white
+            )
+        }
     }
 }

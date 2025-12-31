@@ -237,6 +237,13 @@ fun MainScreen(
             composable("trash_bin") {
                 TrashBinScreen(navController = navController)
             }
+
+            // Favorites route
+            composable("favorites") {
+                com.example.visoragallery.ui.screens.favorites.FavoritesScreen(
+                    navController = navController
+                )
+            }
         }
     }
 }
