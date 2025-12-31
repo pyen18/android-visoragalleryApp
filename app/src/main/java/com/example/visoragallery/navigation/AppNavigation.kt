@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.visoragallery.data.NavigationItem
 import com.example.visoragallery.ui.screens.*
+import com.example.visoragallery.ui.screens.albums.AlbumsScreen
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
 
 @Composable

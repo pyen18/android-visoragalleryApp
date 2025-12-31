@@ -35,6 +35,8 @@ import androidx.navigation.NavType
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.example.visoragallery.data.NavigationItem
+import com.example.visoragallery.ui.screens.albums.AlbumsScreen
+import com.example.visoragallery.ui.screens.albums.SingleAlbumScreen
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
 import com.example.visoragallery.ui.screens.settings.SettingsScreen
 import com.example.visoragallery.ui.screens.trashbin.TrashBinScreen
@@ -242,6 +244,21 @@ fun MainScreen(
             composable("favorites") {
                 com.example.visoragallery.ui.screens.favorites.FavoritesScreen(
                     navController = navController
+                )
+            }
+            // Single album route
+            composable(
+                route = "single_album/{albumId}",
+                arguments = listOf(
+                    navArgument("albumId") {
+                        type = NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                val albumId = backStackEntry.arguments?.getString("albumId") ?: return@composable
+                SingleAlbumScreen(
+                    navController = navController,
+                    albumId = albumId
                 )
             }
         }
