@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.visoragallery.ui.components.AddToAlbumDialog
+import com.example.visoragallery.ui.components.CreateAlbumDialog
 import com.example.visoragallery.ui.components.ZoomableImage
 
 @OptIn(
@@ -39,6 +41,9 @@ fun SinglePhotoScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showDeleteSuccessSnackbar by remember { mutableStateOf(false) }
+    val showAddToAlbumDialog by viewModel.showAddToAlbumDialog.collectAsState()
+    val availableAlbums by viewModel.availableAlbums.collectAsState()
+    val showCreateAlbumDialogState by viewModel.showCreateAlbumDialog.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -213,6 +218,27 @@ fun SinglePhotoScreen(
                                         Icon(Icons.Filled.RotateRight, null)
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Add to Album") },
+                                    onClick = {
+                                        viewModel.showAddToAlbumDialog()
+                                        showMoreMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.LibraryAdd, null)
+                                    }
+                                )
+
+                                DropdownMenuItem(
+                                    text = { Text("Photo Info") },
+                                    onClick = {
+                                        // TODO: Show info dialog
+                                        showMoreMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.Info, null)
+                                    }
+                                )
                             }
                         }
                     },
@@ -253,6 +279,20 @@ fun SinglePhotoScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Filled.Edit, null, tint = Color.White)
                                 Text("Edit", color = Color.White)
+                            }
+                        }
+                        IconButton(onClick = { viewModel.showAddToAlbumDialog() }) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Filled.LibraryAdd,
+                                    contentDescription = "Add to Album",
+                                    tint = Color.White
+                                )
+                                Text(
+                                    "Add to Album",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
                             }
                         }
 
@@ -324,6 +364,40 @@ fun SinglePhotoScreen(
                     onClick = { showDeleteDialog = false }
                 ) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+    if (showAddToAlbumDialog) {
+        AddToAlbumDialog(
+            albums = availableAlbums,
+            selectedPhotosCount = 1,
+            onDismiss = { viewModel.hideAddToAlbumDialog() },
+            onAlbumSelected = { album ->
+                viewModel.hideAddToAlbumDialog()
+                viewModel.addCurrentPhotoToAlbum(album.id) { success ->
+                    if (success) {
+                        showDeleteSuccessSnackbar = true
+                        // Update snackbar message
+                    }
+                }
+            },
+            onCreateNewAlbum = {
+                viewModel.hideAddToAlbumDialog()
+                viewModel.showCreateAlbumDialog()
+            }
+        )
+    }
+
+    if (showCreateAlbumDialogState) {
+        CreateAlbumDialog(
+            onDismiss = { viewModel.hideCreateAlbumDialog() },
+            onConfirm = { albumName ->
+                viewModel.hideCreateAlbumDialog()
+                viewModel.createAlbumAndAddCurrentPhoto(albumName) { success ->
+                    if (success) {
+                        showDeleteSuccessSnackbar = true
+                    }
                 }
             }
         )

@@ -13,6 +13,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.visoragallery.ui.components.AddToAlbumDialog
+import com.example.visoragallery.ui.components.CreateAlbumDialog
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -44,6 +46,10 @@ fun PhotosScreen(
     var deleteResultMessage by remember { mutableStateOf("") }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    // Add to Album Dialog
+    val showAddToAlbumDialog by viewModel.showAddToAlbumDialog.collectAsState()
+    val availableAlbums by viewModel.availableAlbums.collectAsState()
+    val showCreateAlbumDialog by viewModel.showCreateAlbumDialog.collectAsState()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -62,6 +68,12 @@ fun PhotosScreen(
                     actions = {
                         IconButton(onClick = { viewModel.selectAllPhotos() }) {
                             Icon(Icons.Filled.SelectAll, contentDescription = "Select all")
+                        }
+                        IconButton(
+                            onClick = { viewModel.showAddToAlbumDialog() },
+                            enabled = selectedPhotos.isNotEmpty()
+                        ) {
+                            Icon(Icons.Filled.LibraryAdd, contentDescription = "Add to album")
                         }
                         IconButton(
                             onClick = { /* TODO: Share */ },
@@ -327,6 +339,45 @@ fun PhotosScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+    if (showAddToAlbumDialog) {
+        AddToAlbumDialog(
+            albums = availableAlbums,
+            selectedPhotosCount = selectedPhotos.size,
+            onDismiss = { viewModel.hideAddToAlbumDialog() },
+            onAlbumSelected = { album ->
+                viewModel.hideAddToAlbumDialog()
+                viewModel.addSelectedPhotosToAlbum(album.id) { success, count ->
+                    deleteResultMessage = if (success) {
+                        "Added $count photo${if (count > 1) "s" else ""} to ${album.name}"
+                    } else {
+                        "Failed to add photos to album"
+                    }
+                    showDeleteResultSnackbar = true
+                }
+            },
+            onCreateNewAlbum = {
+                viewModel.hideAddToAlbumDialog()
+                viewModel.showCreateAlbumDialog()
+            }
+        )
+    }
+
+    if (showCreateAlbumDialog) {
+        CreateAlbumDialog(
+            onDismiss = { viewModel.hideCreateAlbumDialog() },
+            onConfirm = { albumName ->
+                viewModel.hideCreateAlbumDialog()
+                viewModel.createAlbumAndAddPhotos(albumName) { success ->
+                    deleteResultMessage = if (success) {
+                        "Created album '$albumName' and added photos"
+                    } else {
+                        "Failed to create album"
+                    }
+                    showDeleteResultSnackbar = true
                 }
             }
         )

@@ -1,9 +1,13 @@
 package com.example.visoragallery.ui.screens.photos
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.visoragallery.data.PhotoItem
+import com.example.visoragallery.data.AlbumItem
+import com.example.visoragallery.data.AlbumType
+import com.example.visoragallery.repository.AlbumRepository
 import com.example.visoragallery.repository.PhotoRepository
 import com.example.visoragallery.ui.screens.trashbin.TrashBinManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,16 +15,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/* -------------------- UI STATE -------------------- */
+
 sealed class PhotosUiState {
     object Loading : PhotosUiState()
     data class Success(val photos: List<PhotoItem>) : PhotosUiState()
     data class Error(val message: String) : PhotosUiState()
 }
 
+/* -------------------- VIEW MODEL -------------------- */
+
 class PhotosViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = PhotoRepository(application)
+    /* -------------------- Repository -------------------- */
+
+    private val photoRepository = PhotoRepository(application)
+    private val albumRepository = AlbumRepository(application)
     private val trashBinManager = TrashBinManager.getInstance(application)
+
+    /* -------------------- UI STATE -------------------- */
 
     private val _uiState = MutableStateFlow<PhotosUiState>(PhotosUiState.Loading)
     val uiState: StateFlow<PhotosUiState> = _uiState.asStateFlow()
@@ -37,19 +50,35 @@ class PhotosViewModel(application: Application) : AndroidViewModel(application) 
     private val _deleteInProgress = MutableStateFlow(false)
     val deleteInProgress: StateFlow<Boolean> = _deleteInProgress.asStateFlow()
 
+    /* -------------------- Album UI State -------------------- */
+
+    private val _availableAlbums = MutableStateFlow<List<AlbumItem>>(emptyList())
+    val availableAlbums: StateFlow<List<AlbumItem>> = _availableAlbums.asStateFlow()
+
+    private val _showAddToAlbumDialog = MutableStateFlow(false)
+    val showAddToAlbumDialog: StateFlow<Boolean> = _showAddToAlbumDialog.asStateFlow()
+
+    private val _showCreateAlbumDialog = MutableStateFlow(false)
+    val showCreateAlbumDialog: StateFlow<Boolean> = _showCreateAlbumDialog.asStateFlow()
+
+    /* -------------------- INIT -------------------- */
+
     init {
         loadPhotos()
     }
+
+    /* -------------------- PHOTO LOADING -------------------- */
 
     fun loadPhotos() {
         viewModelScope.launch {
             _uiState.value = PhotosUiState.Loading
             try {
-                repository.getAllPhotos().collect { photos ->
+                photoRepository.getAllPhotos().collect { photos ->
                     _uiState.value = PhotosUiState.Success(photos)
                 }
             } catch (e: Exception) {
-                _uiState.value = PhotosUiState.Error(e.message ?: "Unknown error")
+                _uiState.value =
+                    PhotosUiState.Error(e.message ?: "Load photos failed")
             }
         }
     }
@@ -57,28 +86,16 @@ class PhotosViewModel(application: Application) : AndroidViewModel(application) 
     fun refreshPhotos() {
         viewModelScope.launch {
             try {
-                val photos = repository.refreshPhotos()
+                val photos = photoRepository.refreshPhotos()
                 _uiState.value = PhotosUiState.Success(photos)
             } catch (e: Exception) {
-                _uiState.value = PhotosUiState.Error(e.message ?: "Unknown error")
+                _uiState.value =
+                    PhotosUiState.Error(e.message ?: "Refresh failed")
             }
         }
     }
 
-    fun togglePhotoSelection(photoPath: String) {
-        val currentSelection = _selectedPhotos.value.toMutableSet()
-        if (currentSelection.contains(photoPath)) {
-            currentSelection.remove(photoPath)
-        } else {
-            currentSelection.add(photoPath)
-        }
-        _selectedPhotos.value = currentSelection
-
-        // Exit selection mode if no photos selected
-        if (currentSelection.isEmpty()) {
-            _isSelectionMode.value = false
-        }
-    }
+    /* -------------------- SELECTION -------------------- */
 
     fun enterSelectionMode() {
         _isSelectionMode.value = true
@@ -89,54 +106,149 @@ class PhotosViewModel(application: Application) : AndroidViewModel(application) 
         _selectedPhotos.value = emptySet()
     }
 
+    fun togglePhotoSelection(photoPath: String) {
+        val set = _selectedPhotos.value.toMutableSet()
+        if (!set.add(photoPath)) set.remove(photoPath)
+        _selectedPhotos.value = set
+
+        if (set.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+    }
+
     fun selectAllPhotos() {
         val state = _uiState.value
         if (state is PhotosUiState.Success) {
             _selectedPhotos.value = state.photos.map { it.path }.toSet()
+            _isSelectionMode.value = true
         }
     }
+
+    /* -------------------- GRID -------------------- */
 
     fun setSpanCount(count: Int) {
         _spanCount.value = count.coerceIn(1, 6)
     }
 
-    // Delete selected photos
-    fun deleteSelectedPhotos(onComplete: (success: Boolean, count: Int) -> Unit) {
+    /* -------------------- DELETE -------------------- */
+
+    fun deleteSelectedPhotos(
+        onComplete: (success: Boolean, deletedCount: Int) -> Unit
+    ) {
         viewModelScope.launch {
             _deleteInProgress.value = true
 
-            val photosToDelete = _selectedPhotos.value.toList()
+            val targets = _selectedPhotos.value.toList()
             var successCount = 0
 
-            photosToDelete.forEach { photoPath ->
-                val success = trashBinManager.moveToTrash(photoPath)
-                if (success) successCount++
+            targets.forEach {
+                if (trashBinManager.moveToTrash(it)) {
+                    successCount++
+                }
             }
 
             _deleteInProgress.value = false
-
-            // Exit selection mode and refresh
             exitSelectionMode()
             refreshPhotos()
 
-            onComplete(successCount == photosToDelete.size, successCount)
+            onComplete(successCount == targets.size, successCount)
         }
     }
 
-    // Delete single photo
-    fun deletePhoto(photoPath: String, onComplete: (success: Boolean) -> Unit) {
+    fun deleteSinglePhoto(
+        photoPath: String,
+        onComplete: (Boolean) -> Unit
+    ) {
         viewModelScope.launch {
             _deleteInProgress.value = true
-
             val success = trashBinManager.moveToTrash(photoPath)
-
             _deleteInProgress.value = false
 
-            if (success) {
-                refreshPhotos()
-            }
-
+            if (success) refreshPhotos()
             onComplete(success)
+        }
+    }
+
+    /* -------------------- ALBUM -------------------- */
+
+    fun loadAvailableAlbums() {
+        viewModelScope.launch {
+            try {
+                _availableAlbums.value =
+                    albumRepository.getAllAlbums().filter {
+                        it.type == AlbumType.USER_DEFINED && !it.id.startsWith("/")
+                    }
+            } catch (e: Exception) {
+                Log.e("PhotosViewModel", "Load albums error", e)
+            }
+        }
+    }
+
+    fun showAddToAlbumDialog() {
+        loadAvailableAlbums()
+        _showAddToAlbumDialog.value = true
+    }
+
+    fun hideAddToAlbumDialog() {
+        _showAddToAlbumDialog.value = false
+    }
+
+    fun showCreateAlbumDialog() {
+        _showCreateAlbumDialog.value = true
+    }
+
+    fun hideCreateAlbumDialog() {
+        _showCreateAlbumDialog.value = false
+    }
+
+    fun addSelectedPhotosToAlbum(
+        albumId: String,
+        onComplete: (success: Boolean, count: Int) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val photos = _selectedPhotos.value.toList()
+                val success =
+                    albumRepository.addPhotosToAlbum(albumId, photos)
+
+                if (success) exitSelectionMode()
+                onComplete(success, photos.size)
+            } catch (e: Exception) {
+                onComplete(false, 0)
+            }
+        }
+    }
+
+    fun createAlbumAndAddPhotos(
+        albumName: String,
+        onComplete: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                if (!albumRepository.createAlbum(albumName)) {
+                    onComplete(false)
+                    return@launch
+                }
+
+                val album = albumRepository.getUserAlbums()
+                    .firstOrNull { it.name == albumName }
+
+                if (album == null) {
+                    onComplete(false)
+                    return@launch
+                }
+
+                val success = albumRepository.addPhotosToAlbum(
+                    album.id,
+                    _selectedPhotos.value.toList()
+                )
+
+                if (success) exitSelectionMode()
+                onComplete(success)
+
+            } catch (e: Exception) {
+                onComplete(false)
+            }
         }
     }
 }

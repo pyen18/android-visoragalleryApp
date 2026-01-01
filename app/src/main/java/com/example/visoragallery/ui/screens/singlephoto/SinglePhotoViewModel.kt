@@ -4,7 +4,10 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.visoragallery.data.AlbumItem
+import com.example.visoragallery.data.AlbumType
 import com.example.visoragallery.data.PhotoItem
+import com.example.visoragallery.repository.AlbumRepository
 import com.example.visoragallery.ui.screens.favorites.FavoritesManager
 import com.example.visoragallery.ui.screens.trashbin.TrashBinManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +31,16 @@ class SinglePhotoViewModel(application: Application) : AndroidViewModel(applicat
 
     private val trashBinManager = TrashBinManager.getInstance(application)
     private val favoritesManager = FavoritesManager.getInstance(application)
+    private val albumRepository = AlbumRepository(getApplication())
+
+    private val _availableAlbums = MutableStateFlow<List<AlbumItem>>(emptyList())
+    val availableAlbums: StateFlow<List<AlbumItem>> = _availableAlbums.asStateFlow()
+
+    private val _showAddToAlbumDialog = MutableStateFlow(false)
+    val showAddToAlbumDialog: StateFlow<Boolean> = _showAddToAlbumDialog.asStateFlow()
+
+    private val _showCreateAlbumDialog = MutableStateFlow(false)
+    val showCreateAlbumDialog: StateFlow<Boolean> = _showCreateAlbumDialog.asStateFlow()
 
     private val _uiState = MutableStateFlow(SinglePhotoUiState())
     val uiState: StateFlow<SinglePhotoUiState> = _uiState.asStateFlow()
@@ -179,5 +192,87 @@ class SinglePhotoViewModel(application: Application) : AndroidViewModel(applicat
 
     fun isEmpty(): Boolean {
         return _uiState.value.photos.isEmpty()
+    }
+
+    fun loadAvailableAlbums() {
+        viewModelScope.launch {
+            try {
+                val allAlbums = albumRepository.getAllAlbums()
+                _availableAlbums.value = allAlbums.filter {
+                    it.type == AlbumType.USER_DEFINED &&
+                            !it.id.startsWith("/")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SinglePhotoViewModel", "Error loading albums", e)
+            }
+        }
+    }
+
+    fun showAddToAlbumDialog() {
+        loadAvailableAlbums()
+        _showAddToAlbumDialog.value = true
+    }
+
+    fun hideAddToAlbumDialog() {
+        _showAddToAlbumDialog.value = false
+    }
+
+    fun showCreateAlbumDialog() {
+        _showCreateAlbumDialog.value = true
+    }
+
+    fun hideCreateAlbumDialog() {
+        _showCreateAlbumDialog.value = false
+    }
+
+    fun addCurrentPhotoToAlbum(albumId: String, onComplete: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            val currentPhoto = _uiState.value.currentPhoto
+            if (currentPhoto != null) {
+                try {
+                    val success = albumRepository.addPhotosToAlbum(
+                        albumId,
+                        listOf(currentPhoto.path)
+                    )
+                    onComplete(success)
+                } catch (e: Exception) {
+                    onComplete(false)
+                }
+            } else {
+                onComplete(false)
+            }
+        }
+    }
+
+    fun createAlbumAndAddCurrentPhoto(albumName: String, onComplete: (success: Boolean) -> Unit) {
+        viewModelScope.launch {
+            val currentPhoto = _uiState.value.currentPhoto
+            if (currentPhoto != null) {
+                try {
+                    val created = albumRepository.createAlbum(albumName)
+
+                    if (created) {
+                        val albums = albumRepository.getUserAlbums()
+                        val newAlbum = albums.firstOrNull { it.name == albumName }
+
+                        if (newAlbum != null) {
+                            val added = albumRepository.addPhotosToAlbum(
+                                newAlbum.id,
+                                listOf(currentPhoto.path)
+                            )
+                            onComplete(added)
+                        } else {
+                            onComplete(false)
+                        }
+                    } else {
+                        onComplete(false)
+                    }
+                } catch (e: Exception) {
+                    onComplete(false)
+                }
+            } else {
+                onComplete(false)
+            }
+        }
     }
 }
