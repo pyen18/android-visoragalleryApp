@@ -48,6 +48,26 @@ android {
         // MUST match Kotlin 1.9.24
         kotlinCompilerExtensionVersion = "1.5.14"
     }
+    packaging {
+        resources {
+            excludes += setOf(
+                // Google / Apache duplicated META-INF
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+
+                // Chữ ký JAR (Java SE only)
+                "META-INF/*.SF",
+                "META-INF/*.DSA",
+                "META-INF/*.RSA",
+
+                // Apache / Google license metadata
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt"
+            )
+        }
+    }
 }
 
 dependencies {
@@ -97,4 +117,20 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Google Drive API
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.0.0")
+
+    // Google API core
+    implementation("com.google.api-client:google-api-client:2.6.0")
+
+    // 🔥 BẮT BUỘC – CHO GoogleAccountCredential
+    implementation("com.google.api-client:google-api-client-android:2.6.0")
+
+    // HTTP + JSON
+    implementation("com.google.http-client:google-http-client-gson:1.43.3")
+
+    // Drive API (bản tồn tại)
+    implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
 }

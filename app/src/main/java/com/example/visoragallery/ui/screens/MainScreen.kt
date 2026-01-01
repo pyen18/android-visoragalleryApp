@@ -39,6 +39,7 @@ import com.example.visoragallery.ui.screens.albums.AlbumsScreen
 import com.example.visoragallery.ui.screens.albums.SingleAlbumScreen
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
 import com.example.visoragallery.ui.screens.settings.SettingsScreen
+import com.example.visoragallery.ui.screens.sync.SyncScreen
 import com.example.visoragallery.ui.screens.trashbin.TrashBinScreen
 
 data class BottomNavItem(
@@ -260,6 +261,9 @@ fun MainScreen(
                     navController = navController,
                     albumId = albumId
                 )
+            }
+            composable("drive_sync") {
+                SyncScreen(navController = navController)
             }
         }
     }

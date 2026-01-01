@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
@@ -90,6 +91,16 @@ fun MoreScreen(navController: NavController) {
                     backgroundColor = TrashGray,
                     onClick = {
                         navController.navigate("trash_bin")
+                    }
+                )
+                AlbumCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Drive Sync",
+                    photoCount = "Cloud backup",
+                    icon = Icons.Filled.CloudSync,
+                    backgroundColor = Color(0xFFA5D6A7), // Green
+                    onClick = {
+                        navController.navigate("drive_sync")
                     }
                 )
             }
