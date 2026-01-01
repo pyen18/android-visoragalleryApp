@@ -133,4 +133,9 @@ dependencies {
 
     // Drive API (bản tồn tại)
     implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
+    // OkHttp for API calls
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }

@@ -2,6 +2,7 @@ package com.example.visoragallery.ui.screens.singlephoto
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.visoragallery.data.AlbumItem
@@ -10,6 +11,7 @@ import com.example.visoragallery.data.PhotoItem
 import com.example.visoragallery.repository.AlbumRepository
 import com.example.visoragallery.ui.screens.favorites.FavoritesManager
 import com.example.visoragallery.ui.screens.trashbin.TrashBinManager
+import com.example.visoragallery.utils.BackgroundRemovalHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +34,7 @@ class SinglePhotoViewModel(application: Application) : AndroidViewModel(applicat
     private val trashBinManager = TrashBinManager.getInstance(application)
     private val favoritesManager = FavoritesManager.getInstance(application)
     private val albumRepository = AlbumRepository(getApplication())
+    private val backgroundRemovalHelper = BackgroundRemovalHelper(getApplication())
 
     private val _availableAlbums = MutableStateFlow<List<AlbumItem>>(emptyList())
     val availableAlbums: StateFlow<List<AlbumItem>> = _availableAlbums.asStateFlow()
@@ -44,6 +47,13 @@ class SinglePhotoViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _uiState = MutableStateFlow(SinglePhotoUiState())
     val uiState: StateFlow<SinglePhotoUiState> = _uiState.asStateFlow()
+
+    // Background Removal States
+    private val _backgroundRemovalProgress = MutableStateFlow(0f)
+    val backgroundRemovalProgress: StateFlow<Float> = _backgroundRemovalProgress.asStateFlow()
+
+    private val _showBackgroundRemovalDialog = MutableStateFlow(false)
+    val showBackgroundRemovalDialog: StateFlow<Boolean> = _showBackgroundRemovalDialog.asStateFlow()
 
     fun initPhotos(photoPaths: Array<String>, currentPosition: Int) {
         viewModelScope.launch {
@@ -272,6 +282,60 @@ class SinglePhotoViewModel(application: Application) : AndroidViewModel(applicat
                 }
             } else {
                 onComplete(false)
+            }
+        }
+    }
+
+    // =========================
+    // BACKGROUND REMOVAL
+    // =========================
+
+    fun showBackgroundRemovalDialog() {
+        _showBackgroundRemovalDialog.value = true
+    }
+
+    fun hideBackgroundRemovalDialog() {
+        _showBackgroundRemovalDialog.value = false
+        _backgroundRemovalProgress.value = 0f
+    }
+
+    fun removeBackground(
+        useAPI: Boolean = true,
+        onComplete: (success: Boolean, outputFile: File?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val currentPhoto = _uiState.value.currentPhoto
+            if (currentPhoto?.file == null) {
+                onComplete(false, null)
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(deleteInProgress = true)
+
+            try {
+                val result = if (useAPI) {
+                    backgroundRemovalHelper.removeBackground(
+                        inputFile = currentPhoto.file,
+                        onProgress = { progress: Float ->
+                            _backgroundRemovalProgress.value = progress
+                        }
+                    )
+                } else {
+                    backgroundRemovalHelper.removeBackgroundLocal(
+                        inputFile = currentPhoto.file,
+                        onProgress = { progress: Float ->
+                            _backgroundRemovalProgress.value = progress
+                        }
+                    )
+                }
+
+                _uiState.value = _uiState.value.copy(deleteInProgress = false)
+                onComplete(result != null, result)
+
+            } catch (e: Exception) {
+                Log.e("SinglePhotoViewModel", "Error removing background", e)
+                _uiState.value = _uiState.value.copy(deleteInProgress = false)
+                onComplete(false, null)
             }
         }
     }

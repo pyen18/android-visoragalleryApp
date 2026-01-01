@@ -20,6 +20,7 @@ import androidx.navigation.NavController
 import com.example.visoragallery.ui.components.AddToAlbumDialog
 import com.example.visoragallery.ui.components.CreateAlbumDialog
 import com.example.visoragallery.ui.components.ZoomableImage
+import java.io.File
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -44,6 +45,13 @@ fun SinglePhotoScreen(
     val showAddToAlbumDialog by viewModel.showAddToAlbumDialog.collectAsState()
     val availableAlbums by viewModel.availableAlbums.collectAsState()
     val showCreateAlbumDialogState by viewModel.showCreateAlbumDialog.collectAsState()
+
+    // Background Removal States
+    val showBackgroundRemovalDialog by viewModel.showBackgroundRemovalDialog.collectAsState()
+    val backgroundRemovalProgress by viewModel.backgroundRemovalProgress.collectAsState()
+    var showMethodDialog by remember { mutableStateOf(false) }
+    var showResultDialog by remember { mutableStateOf(false) }
+    var resultFile by remember { mutableStateOf<File?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -248,6 +256,10 @@ fun SinglePhotoScreen(
                     )
                 )
             }
+
+            // =========================
+            // BOTTOM BAR
+            // =========================
             AnimatedVisibility(
                 visible = uiState.showUI,
                 enter = slideInVertically(
@@ -275,12 +287,13 @@ fun SinglePhotoScreen(
                             }
                         }
 
-                        IconButton(onClick = {}) {
+                        IconButton(onClick = { showMethodDialog = true }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Filled.Edit, null, tint = Color.White)
                                 Text("Edit", color = Color.White)
                             }
                         }
+
                         IconButton(onClick = { viewModel.showAddToAlbumDialog() }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
@@ -340,6 +353,11 @@ fun SinglePhotoScreen(
         }
     }
 
+    // =========================
+    // DIALOGS
+    // =========================
+
+    // Delete Confirmation Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -368,6 +386,8 @@ fun SinglePhotoScreen(
             }
         )
     }
+
+    // Add to Album Dialog
     if (showAddToAlbumDialog) {
         AddToAlbumDialog(
             albums = availableAlbums,
@@ -378,7 +398,6 @@ fun SinglePhotoScreen(
                 viewModel.addCurrentPhotoToAlbum(album.id) { success ->
                     if (success) {
                         showDeleteSuccessSnackbar = true
-                        // Update snackbar message
                     }
                 }
             },
@@ -389,6 +408,7 @@ fun SinglePhotoScreen(
         )
     }
 
+    // Create Album Dialog
     if (showCreateAlbumDialogState) {
         CreateAlbumDialog(
             onDismiss = { viewModel.hideCreateAlbumDialog() },
@@ -403,7 +423,144 @@ fun SinglePhotoScreen(
         )
     }
 
+    // =========================
+    // BACKGROUND REMOVAL DIALOGS
+    // =========================
 
+    // Method Selection Dialog
+    if (showMethodDialog) {
+        AlertDialog(
+            onDismissRequest = { showMethodDialog = false },
+            icon = {
+                Icon(Icons.Filled.Edit, contentDescription = null)
+            },
+            title = {
+                Text("Remove Background")
+            },
+            text = {
+                Column {
+                    Text("Choose removal method:")
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            showMethodDialog = false
+                            viewModel.showBackgroundRemovalDialog()
+                            viewModel.removeBackground(useAPI = true) { success, file ->
+                                if (success && file != null) {
+                                    resultFile = file
+                                    showResultDialog = true
+                                }
+                                viewModel.hideBackgroundRemovalDialog()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Cloud, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Use API (Better Quality)")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            showMethodDialog = false
+                            viewModel.showBackgroundRemovalDialog()
+                            viewModel.removeBackground(useAPI = false) { success, file ->
+                                if (success && file != null) {
+                                    resultFile = file
+                                    showResultDialog = true
+                                }
+                                viewModel.hideBackgroundRemovalDialog()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.PhoneAndroid, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Process Locally (Free)")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showMethodDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Background Removal Progress Dialog
+    if (showBackgroundRemovalDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = {
+                Text("Removing Background...")
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        progress = { backgroundRemovalProgress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("${(backgroundRemovalProgress * 100).toInt()}%")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // Result Dialog
+    if (showResultDialog && resultFile != null) {
+        AlertDialog(
+            onDismissRequest = { showResultDialog = false },
+            icon = {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = {
+                Text("Background Removed!")
+            },
+            text = {
+                Column {
+                    Text("Image saved to:")
+                    Text(
+                        resultFile!!.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showResultDialog = false
+                    navController.navigateUp()
+                }) {
+                    Text("View in Gallery")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResultDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // =========================
+    // SNACKBAR
+    // =========================
     LaunchedEffect(showDeleteSuccessSnackbar) {
         if (showDeleteSuccessSnackbar) {
             snackbarHostState.showSnackbar("Moved to trash")
