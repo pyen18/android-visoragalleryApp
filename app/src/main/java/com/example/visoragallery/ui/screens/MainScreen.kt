@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
@@ -39,8 +40,12 @@ import com.example.visoragallery.ui.screens.albums.AlbumsScreen
 import com.example.visoragallery.ui.screens.albums.SingleAlbumScreen
 import com.example.visoragallery.ui.screens.singlephoto.SinglePhotoScreen
 import com.example.visoragallery.ui.screens.settings.SettingsScreen
+import com.example.visoragallery.ui.screens.story.StoryGalleryScreen
+import com.example.visoragallery.ui.screens.story.StoryGeneratorScreen
 import com.example.visoragallery.ui.screens.sync.SyncScreen
 import com.example.visoragallery.ui.screens.trashbin.TrashBinScreen
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 data class BottomNavItem(
     val route: String,
@@ -264,6 +269,33 @@ fun MainScreen(
             }
             composable("drive_sync") {
                 SyncScreen(navController = navController)
+            }
+            composable("ai_stories") {
+                StoryGalleryScreen(navController = navController)
+            }
+
+            // AI Story Generator route
+            composable(
+                route = "story_generator/{photoPath}",
+                arguments = listOf(
+                    navArgument("photoPath") {
+                        type = NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                val encodedPath = backStackEntry.arguments?.getString("photoPath") ?: return@composable
+
+                // QUAN TRỌNG: Giải mã đường dẫn (Decode) để lấy lại dấu "/"
+                val decodedPath = try {
+                    URLDecoder.decode(encodedPath, StandardCharsets.UTF_8.toString())
+                } catch (e: Exception) {
+                    encodedPath
+                }
+
+                StoryGeneratorScreen(
+                    navController = navController,
+                    photoPath = decodedPath
+                )
             }
         }
     }

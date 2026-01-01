@@ -5,12 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,16 +35,10 @@ fun MoreScreen(navController: NavController) {
             TopAppBar(
                 title = { Text("More") },
                 actions = {
-                    IconButton(onClick = {
-                        navController.navigate("settings")
-                    }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    IconButton(onClick = { navController.navigate("settings") }) {
+                        Icon(Icons.Filled.Settings, contentDescription = null)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                }
             )
         }
     ) { paddingValues ->
@@ -69,69 +58,70 @@ fun MoreScreen(navController: NavController) {
                     photoCount = "0 photos",
                     icon = Icons.Filled.Favorite,
                     backgroundColor = FavoritesPink,
-                    onClick = {
-                        navController.navigate("favorites")
-                    }
+                    onClick = { navController.navigate("favorites") }
                 )
-
                 AlbumCard(
                     modifier = Modifier.weight(1f),
                     title = "Privacy",
                     photoCount = "0 photos",
                     icon = Icons.Filled.Lock,
                     backgroundColor = PrivateBlue,
-                    onClick = { /* TODO: Navigate to privacy */ }
+                    onClick = { navController.navigate("privacy") }
                 )
-
                 AlbumCard(
                     modifier = Modifier.weight(1f),
                     title = "Trash Bin",
                     photoCount = "0 photos",
                     icon = Icons.Filled.Delete,
                     backgroundColor = TrashGray,
-                    onClick = {
-                        navController.navigate("trash_bin")
-                    }
+                    onClick = { navController.navigate("trash_bin") }
                 )
                 AlbumCard(
                     modifier = Modifier.weight(1f),
                     title = "Drive Sync",
                     photoCount = "Cloud backup",
                     icon = Icons.Filled.CloudSync,
-                    backgroundColor = Color(0xFFA5D6A7), // Green
-                    onClick = {
-                        navController.navigate("drive_sync")
-                    }
+                    backgroundColor = Color(0xFFA5D6A7),
+                    onClick = { navController.navigate("drive_sync") }
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Generate Test Images Button (FOR TESTING ONLY)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                AlbumCard(
+                    modifier = Modifier.weight(1f),
+                    title = "AI Stories",
+                    photoCount = "New feature!",
+                    icon = Icons.Filled.AutoAwesome,
+                    backgroundColor = Color(0xFF9C27B0),
+                    onClick = { navController.navigate("ai_stories") }
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             Button(
                 onClick = {
                     scope.launch {
                         isGenerating = true
                         val success = TestImageGenerator.generateTestImages(context, 20)
                         isGenerating = false
-                        if (success) {
-                            showSuccessDialog = true
-                        }
+                        if (success) showSuccessDialog = true
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                enabled = !isGenerating,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isGenerating
             ) {
                 if (isGenerating) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
+                        color = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Generating...")
@@ -142,29 +132,29 @@ fun MoreScreen(navController: NavController) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = "For testing only - Creates 20 colorful test images",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }
     }
 
-    // Success Dialog
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = { showSuccessDialog = false },
             icon = {
                 Icon(
-                    Icons.Filled.Add,
+                    Icons.Filled.CheckCircle,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Test Images Generated!") },
+            title = { Text("Test Images Generated") },
             text = {
-                Text("20 test images have been created. Go to Photos tab and pull-to-refresh to see them.")
+                Text("20 test images have been created. Pull to refresh in Photos tab to see them.")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -203,34 +193,25 @@ fun AlbumCard(
             .clickable(onClick = onClick)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween  // Changed from Center to SpaceBetween
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Icon at top
         Icon(
             imageVector = icon,
-            contentDescription = title,
-            modifier = Modifier
-                .size(56.dp)
-                .weight(1f),
+            contentDescription = null,
+            modifier = Modifier.size(56.dp),
             tint = Color.White
         )
-
-        // Text at bottom
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White  // Changed to white for better contrast
+                color = Color.White
             )
-
             Spacer(modifier = Modifier.height(4.dp))
-
             Text(
                 text = photoCount,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f)  // Changed to white
+                color = Color.White.copy(alpha = 0.8f)
             )
         }
     }

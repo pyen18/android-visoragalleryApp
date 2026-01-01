@@ -21,6 +21,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.example.visoragallery.ui.components.PhotoGrid
 import com.example.visoragallery.ui.screens.photos.PhotosUiState
 import com.example.visoragallery.ui.screens.photos.PhotosViewModel
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -144,6 +146,22 @@ fun PhotosScreen(
                                     },
                                     leadingIcon = {
                                         Icon(Icons.Filled.Settings, null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Generate AI Story") },
+                                    onClick = {
+                                        val path = (uiState as? PhotosUiState.Success)?.photos?.firstOrNull()?.path
+
+                                        if (path != null) {
+                                            // FIX: Encode the path to handle slashes "/" safely
+                                            val encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
+                                            navController.navigate("story_generator/$encodedPath")
+                                        }
+                                        showMoreMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.AutoAwesome, null)
                                     }
                                 )
                             }
