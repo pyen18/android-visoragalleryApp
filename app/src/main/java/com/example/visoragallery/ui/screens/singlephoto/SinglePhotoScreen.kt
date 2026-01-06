@@ -7,14 +7,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.visoragallery.ui.components.AddToAlbumDialog
@@ -33,12 +39,10 @@ fun SinglePhotoScreen(
     initialPosition: Int,
     viewModel: SinglePhotoViewModel = viewModel()
 ) {
-
     // =========================
-    // STATE
+    // STATE & LOGIC
     // =========================
     val uiState by viewModel.uiState.collectAsState()
-
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showDeleteSuccessSnackbar by remember { mutableStateOf(false) }
@@ -52,33 +56,17 @@ fun SinglePhotoScreen(
     var showMethodDialog by remember { mutableStateOf(false) }
     var showResultDialog by remember { mutableStateOf(false) }
     var resultFile by remember { mutableStateOf<File?>(null) }
-
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // =========================
-    // INIT DATA (CHỈ 1 LẦN)
-    // =========================
+    // Init Data
     LaunchedEffect(Unit) {
         viewModel.initPhotos(photoPaths, initialPosition)
     }
 
-    // =========================
-    // ❗ CHẶN COMPOSE KHI DATA CHƯA CÓ
-    // =========================
-    if (uiState.photos.isEmpty()) {
-        return
-    }
+    if (uiState.photos.isEmpty()) return
 
-    // =========================
-    // PAGER STATE (KHÔNG initialPage)
-    // =========================
-    val pagerState = rememberPagerState {
-        uiState.photos.size
-    }
+    val pagerState = rememberPagerState { uiState.photos.size }
 
-    // =========================
-    // SCROLL ĐÚNG INDEX KHI DATA SẴN SÀNG
-    // =========================
     LaunchedEffect(uiState.photos) {
         if (uiState.photos.isNotEmpty()) {
             pagerState.scrollToPage(initialPosition)
@@ -86,44 +74,35 @@ fun SinglePhotoScreen(
         }
     }
 
-    // =========================
-    // SYNC PAGE → VIEWMODEL
-    // =========================
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage in uiState.photos.indices) {
             viewModel.setCurrentIndex(pagerState.currentPage)
         }
     }
 
-    // =========================
-    // NAV BACK IF EMPTY
-    // =========================
     LaunchedEffect(uiState.photos.isEmpty()) {
-        if (uiState.photos.isEmpty()) {
-            navController.navigateUp()
-        }
+        if (uiState.photos.isEmpty()) navController.navigateUp()
     }
 
     // =========================
-    // UI
+    // UI LAYOUT
     // =========================
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Black // Nền đen cho trải nghiệm xem ảnh tốt nhất
     ) { paddingValues ->
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
                 .padding(paddingValues)
         ) {
 
-            // =========================
-            // PHOTO PAGER
-            // =========================
+            // 1. PHOTO PAGER
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                pageSpacing = 16.dp // Tạo khoảng cách giữa các ảnh
             ) { page ->
                 val photo = uiState.photos.getOrNull(page)
                 val file = photo?.file
@@ -138,214 +117,198 @@ fun SinglePhotoScreen(
                 }
             }
 
-            // =========================
-            // TOP BAR
-            // =========================
+            // 2. OVERLAY GRADIENTS (Tạo hiệu ứng bóng mờ để text dễ đọc)
             AnimatedVisibility(
                 visible = uiState.showUI,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = tween(300)
-                ) + fadeIn(),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(300)
-                ) + fadeOut()
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300)),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Box(Modifier.fillMaxSize()) {
+                    // Gradient trên
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)
+                                )
+                            )
+                    )
+                    // Gradient dưới
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                                )
+                            )
+                    )
+                }
+            }
+
+            // 3. TOP BAR
+            AnimatedVisibility(
+                visible = uiState.showUI,
+                enter = slideInVertically { -it } + fadeIn(),
+                exit = slideOutVertically { -it } + fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter)
             ) {
                 TopAppBar(
                     title = {
                         Column {
                             Text(
                                 text = viewModel.getFormattedDate(),
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
                                 color = Color.White
                             )
                             Text(
                                 text = viewModel.getFormattedTime(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.7f)
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.8f)
                             )
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = { navController.navigateUp() }) {
+                            // Đã sửa lại icon tương thích
                             Icon(
-                                Icons.Filled.ArrowBack,
+                                imageVector = Icons.Filled.ArrowBack,
                                 contentDescription = "Back",
                                 tint = Color.White
                             )
                         }
                     },
                     actions = {
-
+                        // Favorite Icon
                         IconButton(onClick = { viewModel.toggleFavorite() }) {
                             Icon(
-                                imageVector = if (uiState.isFavorite)
-                                    Icons.Filled.Favorite
-                                else
-                                    Icons.Filled.FavoriteBorder,
+                                imageVector = if (uiState.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                                 contentDescription = "Favorite",
-                                tint = if (uiState.isFavorite)
-                                    Color(0xFFF85D58)
-                                else
-                                    Color.White
+                                tint = if (uiState.isFavorite) Color(0xFFFF4D4D) else Color.White
                             )
                         }
 
+                        // More Menu
                         Box {
                             IconButton(onClick = { showMoreMenu = true }) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = "More",
-                                    tint = Color.White
-                                )
+                                Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = Color.White)
                             }
 
-                            DropdownMenu(
-                                expanded = showMoreMenu,
-                                onDismissRequest = { showMoreMenu = false }
+                            // Menu tối màu
+                            MaterialTheme(
+                                colorScheme = MaterialTheme.colorScheme.copy(surface = Color(0xFF2C2C2C))
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("Photo Info") },
-                                    onClick = { showMoreMenu = false },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.Info, null)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Set as...") },
-                                    onClick = { showMoreMenu = false },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.Wallpaper, null)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Rotate") },
-                                    onClick = { showMoreMenu = false },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.RotateRight, null)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Add to Album") },
-                                    onClick = {
-                                        viewModel.showAddToAlbumDialog()
-                                        showMoreMenu = false
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.LibraryAdd, null)
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text("Photo Info") },
-                                    onClick = {
-                                        // TODO: Show info dialog
-                                        showMoreMenu = false
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.Info, null)
-                                    }
-                                )
+                                DropdownMenu(
+                                    expanded = showMoreMenu,
+                                    onDismissRequest = { showMoreMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Photo Info", color = Color.White) },
+                                        onClick = { showMoreMenu = false },
+                                        leadingIcon = { Icon(Icons.Filled.Info, null, tint = Color.White) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Set as...", color = Color.White) },
+                                        onClick = { showMoreMenu = false },
+                                        leadingIcon = { Icon(Icons.Filled.Wallpaper, null, tint = Color.White) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Rotate", color = Color.White) },
+                                        onClick = { showMoreMenu = false },
+                                        leadingIcon = { Icon(Icons.Filled.RotateRight, null, tint = Color.White) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Add to Album", color = Color.White) },
+                                        onClick = {
+                                            viewModel.showAddToAlbumDialog()
+                                            showMoreMenu = false
+                                        },
+                                        leadingIcon = { Icon(Icons.Filled.LibraryAdd, null, tint = Color.White) }
+                                    )
+                                }
                             }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Black.copy(alpha = 0.7f),
-                        titleContentColor = Color.White
+                        containerColor = Color.Transparent // Quan trọng: Để nhìn xuyên qua ảnh
                     )
                 )
             }
 
-            // =========================
-            // BOTTOM BAR
-            // =========================
+            // 4. BOTTOM BAR (Minimal Style)
             AnimatedVisibility(
                 visible = uiState.showUI,
-                enter = slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(300)
-                ) + fadeIn(),
-                exit = slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(300)
-                ) + fadeOut(),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                BottomAppBar(
-                    containerColor = Color.Black.copy(alpha = 0.7f)
+                // Custom Row thay vì BottomAppBar mặc định
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp, top = 12.dp)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
+                    // Share
+                    BottomActionItem(
+                        icon = Icons.Filled.Share,
+                        label = "Share",
+                        onClick = {}
+                    )
 
-                        IconButton(onClick = {}) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Filled.Share, null, tint = Color.White)
-                                Text("Share", color = Color.White)
-                            }
-                        }
+                    // Edit
+                    BottomActionItem(
+                        icon = Icons.Filled.Edit,
+                        label = "Edit",
+                        onClick = { showMethodDialog = true }
+                    )
 
-                        IconButton(onClick = { showMethodDialog = true }) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Filled.Edit, null, tint = Color.White)
-                                Text("Edit", color = Color.White)
-                            }
-                        }
+                    // Add to Album
+                    BottomActionItem(
+                        icon = Icons.Filled.LibraryAdd,
+                        label = "Album",
+                        onClick = { viewModel.showAddToAlbumDialog() }
+                    )
 
-                        IconButton(onClick = { viewModel.showAddToAlbumDialog() }) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Filled.LibraryAdd,
-                                    contentDescription = "Add to Album",
-                                    tint = Color.White
-                                )
-                                Text(
-                                    "Add to Album",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = { showDeleteDialog = true },
-                            enabled = !uiState.deleteInProgress
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                if (uiState.deleteInProgress) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp,
-                                        color = Color.White
-                                    )
-                                } else {
-                                    Icon(Icons.Filled.Delete, null, tint = Color.White)
-                                }
-                                Text("Delete", color = Color.White)
-                            }
-                        }
-                    }
+                    // Delete
+                    BottomActionItem(
+                        icon = Icons.Filled.Delete,
+                        label = "Delete",
+                        onClick = { showDeleteDialog = true },
+                        enabled = !uiState.deleteInProgress,
+                        isLoading = uiState.deleteInProgress
+                    )
                 }
             }
 
-            // =========================
-            // PAGE INDICATOR
-            // =========================
+            // 5. PAGE INDICATOR (Viên thuốc)
             if (uiState.showUI && uiState.photos.size > 1) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 80.dp)
                 ) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.5f)
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = "${pagerState.currentPage + 1} / ${uiState.photos.size}",
                             color = Color.White,
-                            modifier = Modifier.padding(8.dp)
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -368,21 +331,13 @@ fun SinglePhotoScreen(
                     onClick = {
                         showDeleteDialog = false
                         viewModel.deleteCurrentPhoto { success ->
-                            if (success) {
-                                navController.navigateUp()
-                            }
+                            if (success) navController.navigateUp()
                         }
                     }
-                ) {
-                    Text("Move to Trash")
-                }
+                ) { Text("Move to Trash", color = Color.Red) }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showDeleteDialog = false }
-                ) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -396,9 +351,7 @@ fun SinglePhotoScreen(
             onAlbumSelected = { album ->
                 viewModel.hideAddToAlbumDialog()
                 viewModel.addCurrentPhotoToAlbum(album.id) { success ->
-                    if (success) {
-                        showDeleteSuccessSnackbar = true
-                    }
+                    if (success) showDeleteSuccessSnackbar = true
                 }
             },
             onCreateNewAlbum = {
@@ -415,42 +368,28 @@ fun SinglePhotoScreen(
             onConfirm = { albumName ->
                 viewModel.hideCreateAlbumDialog()
                 viewModel.createAlbumAndAddCurrentPhoto(albumName) { success ->
-                    if (success) {
-                        showDeleteSuccessSnackbar = true
-                    }
+                    if (success) showDeleteSuccessSnackbar = true
                 }
             }
         )
     }
 
-    // =========================
-    // BACKGROUND REMOVAL DIALOGS
-    // =========================
-
     // Method Selection Dialog
     if (showMethodDialog) {
         AlertDialog(
             onDismissRequest = { showMethodDialog = false },
-            icon = {
-                Icon(Icons.Filled.Edit, contentDescription = null)
-            },
-            title = {
-                Text("Remove Background")
-            },
+            icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+            title = { Text("Remove Background") },
             text = {
                 Column {
                     Text("Choose removal method:")
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Button(
                         onClick = {
                             showMethodDialog = false
                             viewModel.showBackgroundRemovalDialog()
                             viewModel.removeBackground(useAPI = true) { success, file ->
-                                if (success && file != null) {
-                                    resultFile = file
-                                    showResultDialog = true
-                                }
+                                if (success && file != null) { resultFile = file; showResultDialog = true }
                                 viewModel.hideBackgroundRemovalDialog()
                             }
                         },
@@ -460,18 +399,13 @@ fun SinglePhotoScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Use API (Better Quality)")
                     }
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     OutlinedButton(
                         onClick = {
                             showMethodDialog = false
                             viewModel.showBackgroundRemovalDialog()
                             viewModel.removeBackground(useAPI = false) { success, file ->
-                                if (success && file != null) {
-                                    resultFile = file
-                                    showResultDialog = true
-                                }
+                                if (success && file != null) { resultFile = file; showResultDialog = true }
                                 viewModel.hideBackgroundRemovalDialog()
                             }
                         },
@@ -484,11 +418,7 @@ fun SinglePhotoScreen(
                 }
             },
             confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showMethodDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { showMethodDialog = false }) { Text("Cancel") } }
         )
     }
 
@@ -496,20 +426,12 @@ fun SinglePhotoScreen(
     if (showBackgroundRemovalDialog) {
         AlertDialog(
             onDismissRequest = { },
-            title = {
-                Text("Removing Background...")
-            },
+            title = { Text("Removing Background...") },
             text = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
-                    LinearProgressIndicator(
-                        progress = { backgroundRemovalProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    LinearProgressIndicator(progress = { backgroundRemovalProgress }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("${(backgroundRemovalProgress * 100).toInt()}%")
                 }
@@ -522,49 +444,71 @@ fun SinglePhotoScreen(
     if (showResultDialog && resultFile != null) {
         AlertDialog(
             onDismissRequest = { showResultDialog = false },
-            icon = {
-                Icon(
-                    Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            },
-            title = {
-                Text("Background Removed!")
-            },
+            icon = { Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Background Removed!") },
             text = {
                 Column {
                     Text("Image saved to:")
-                    Text(
-                        resultFile!!.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Text(resultFile!!.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    showResultDialog = false
-                    navController.navigateUp()
-                }) {
-                    Text("View in Gallery")
-                }
+                TextButton(onClick = { showResultDialog = false; navController.navigateUp() }) { Text("View in Gallery") }
             },
-            dismissButton = {
-                TextButton(onClick = { showResultDialog = false }) {
-                    Text("OK")
-                }
-            }
+            dismissButton = { TextButton(onClick = { showResultDialog = false }) { Text("OK") } }
         )
     }
 
-    // =========================
-    // SNACKBAR
-    // =========================
+    // Snackbar
     LaunchedEffect(showDeleteSuccessSnackbar) {
         if (showDeleteSuccessSnackbar) {
-            snackbarHostState.showSnackbar("Moved to trash")
+            snackbarHostState.showSnackbar("Success")
             showDeleteSuccessSnackbar = false
         }
+    }
+}
+
+// =========================
+// HELPER COMPONENTS
+// =========================
+
+@Composable
+fun BottomActionItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    isLoading: Boolean = false
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(8.dp)
+    ) {
+        IconButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.size(48.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.8f),
+            fontSize = 10.sp
+        )
     }
 }
